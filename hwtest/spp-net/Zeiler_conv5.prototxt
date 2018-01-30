@@ -1,0 +1,76 @@
+name: "ImageNet_Zeiler"
+
+input: "data"
+input_dim: 128
+input_dim: 3
+input_dim: 224
+input_dim: 224
+
+# ------------------------ layer 1 -----------------------------
+ layer {
+   name: "conv1"
+   type: "Convolution"
+   convolution_param{
+	   num_output: 96
+	   kernel_size: 7
+	   pad: 1
+	   stride: 2
+	   weight_filler {
+		 type: "gaussian"
+		 std: 0.01
+	   }
+	   bias_filler {
+		 type: "constant"
+		 value: 0
+	   }
+   }
+   bottom: "data"
+   top: "conv1"
+}
+
+ layer {
+   name: "relu1"
+  bottom: "conv1"
+ top: "conv1"
+
+  type: "ReLU"
+ }
+  layer {
+    name: "norm1"
+   bottom: "conv1"
+  top: "norm1"
+
+   type: "LRN"
+	lrn_param{
+		local_size: 3
+		alpha: 0.00005
+		beta: 0.75
+	}
+  }
+
+ layer {
+   name: "pool1"
+   type: "Pooling"
+   pooling_param{
+	   kernel_size: 3
+	   stride: 2
+	   pool: MAX
+   }
+  bottom: "norm1"
+ top: "pool1"
+
+}
+# --------------------------- layer 2 ------------------------
+ layer {
+  bottom: "pool1"
+ top: "conv2"
+
+  name: "conv2"
+   type: "Convolution"
+   convolution_param{
+	   num_output: 256
+	   kernel_size: 5
+	   pad: 0
+	   stride: 2
+}
+}
