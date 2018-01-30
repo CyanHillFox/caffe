@@ -335,6 +335,7 @@ int test() {
 RegisterBrewFunction(test);
 
 
+#include <sys/time.h>    // for gettimeofday()
 // Time: benchmark the execution time of a model.
 int time() {
   CHECK_GT(FLAGS_model.size(), 0) << "Need a model definition to time.";
@@ -382,16 +383,25 @@ int time() {
   std::vector<double> backward_time_per_layer(layers.size(), 0.0);
   double forward_time = 0.0;
   double backward_time = 0.0;
+
+  struct timeval startt, endt;
   for (int j = 0; j < FLAGS_iterations; ++j) {
     Timer iter_timer;
     iter_timer.Start();
     forward_timer.Start();
     for (int i = 0; i < layers.size(); ++i) {
-      timer.Start();
+     // timer.Start();
+      gettimeofday( &startt, NULL );
+      const caffe::string& layername = layers[i]->layer_param().name();
+      const caffe::string& layertype = layers[i]->layer_param().type();
       layers[i]->Forward(bottom_vecs[i], top_vecs[i]);
-      forward_time_per_layer[i] += timer.MicroSeconds();
+      cudaDeviceSynchronize();
+      gettimeofday( &endt, NULL );
+      LOG(INFO) << j <<" " << layername <<" " << layertype<< " from: " << startt.tv_sec <<"," << startt.tv_usec <<" to: " << endt.tv_sec << "," << endt.tv_usec;
+//      forward_time_per_layer[i] += timer.MicroSeconds();
     }
     forward_time += forward_timer.MicroSeconds();
+    continue;
     backward_timer.Start();
     for (int i = layers.size() - 1; i >= 0; --i) {
       timer.Start();
@@ -406,7 +416,8 @@ int time() {
   LOG(INFO) << "Average time per layer: ";
   for (int i = 0; i < layers.size(); ++i) {
     const caffe::string& layername = layers[i]->layer_param().name();
-    LOG(INFO) << std::setfill(' ') << std::setw(10) << layername <<
+    const caffe::string& layertype = layers[i]->layer_param().type();
+    LOG(INFO) << std::setfill(' ') << std::setw(10) << layername << " type:" << layertype <<
       "\tforward: " << forward_time_per_layer[i] / 1000 /
       FLAGS_iterations << " ms.";
     LOG(INFO) << std::setfill(' ') << std::setw(10) << layername  <<

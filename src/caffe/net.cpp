@@ -512,12 +512,15 @@ void Net<Dtype>::AppendParam(const NetParameter& param, const int layer_id,
   }
 }
 
+#include <sys/time.h>    // for gettimeofday()
 template <typename Dtype>
 Dtype Net<Dtype>::ForwardFromTo(int start, int end) {
   CHECK_GE(start, 0);
   CHECK_LT(end, layers_.size());
   Dtype loss = 0;
+  struct timeval startt, endt;
   for (int i = start; i <= end; ++i) {
+    gettimeofday( &startt, NULL );
     for (int c = 0; c < before_forward_.size(); ++c) {
       before_forward_[c]->run(i);
     }
@@ -527,6 +530,8 @@ Dtype Net<Dtype>::ForwardFromTo(int start, int end) {
     for (int c = 0; c < after_forward_.size(); ++c) {
       after_forward_[c]->run(i);
     }
+    gettimeofday( &endt, NULL );
+//    LOG(INFO) << layer_names_[i]<< " from: " << startt.tv_sec <<"," << startt.tv_usec <<" to: " << endt.tv_sec << "," << endt.tv_usec;
   }
   return loss;
 }
