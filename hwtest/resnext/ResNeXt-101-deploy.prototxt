@@ -10,7 +10,7 @@ layer {
   name: "bn_data"
   type: "BatchNorm"
   bottom: "data"
-  top: "data"
+  top: "data_bn"
   batch_norm_param {
     use_global_stats: true
     eps: 2e-5
@@ -19,8 +19,8 @@ layer {
 
 layer {
  name: "scale_bn_data"
- bottom: "data"
- top: "data"
+ bottom: "data_bn"
+ top: "data_scale"
  type: "Scale"
  scale_param {
        bias_term: true
@@ -30,7 +30,7 @@ layer {
 layer {
   name: "conv0"
   type: "Convolution"
-  bottom: "data"
+  bottom: "data_scale"
   top: "conv0"
   convolution_param { 
      num_output: 64
