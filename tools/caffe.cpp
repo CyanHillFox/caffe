@@ -6,11 +6,13 @@ namespace bp = boost::python;
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
+#include <cuda_profiler_api.h>
+
 #include <cstring>
 #include <map>
 #include <string>
 #include <vector>
-
+#include <iomanip>
 #include "boost/algorithm/string.hpp"
 #include "caffe/caffe.hpp"
 #include "caffe/util/signal_handler.h"
@@ -54,6 +56,14 @@ DEFINE_string(sigint_effect, "stop",
 DEFINE_string(sighup_effect, "snapshot",
              "Optional; action to take when a SIGHUP signal is received: "
              "snapshot, stop or none.");
+DEFINE_int32(batch_size, 0,
+    "the batch size to use when benchmarking, note that the network will be reshaped, "
+    "and batch size set in prototxt will be ignored if batch_size != 0, "
+    "specify 0 for keep prototxt batch size");
+DEFINE_int32(seq_len, 0,
+    "the sequence length of input to use when benchmarking, the network will be reshaped, "
+    "sequence length in prototxt will be ignored if if seq_len != 0, "
+    "specify 0 for keep prototxt seq_len");
 
 // A simple registry for caffe commands.
 typedef int (*BrewFunction)();
@@ -356,6 +366,24 @@ int time() {
   // Instantiate the caffe net.
   Net<float> caffe_net(FLAGS_model, phase, FLAGS_level, &stages);
 
+  // reshape the network, change batch size
+  if (FLAGS_batch_size != 0) {
+    Blob<float> *input_layer = caffe_net.input_blobs()[0];
+    std::vector<int> shape = input_layer->shape();
+    shape[0] = FLAGS_batch_size;
+    input_layer->Reshape(shape);
+    caffe_net.Reshape();
+  }
+
+  // change seq_len
+  if (FLAGS_seq_len != 0) {
+    Blob<float> *input_layer = caffe_net.input_blobs()[0];
+    std::vector<int> shape = input_layer->shape();
+    shape[1] = FLAGS_seq_len;
+    input_layer->Reshape(shape);
+    caffe_net.Reshape();
+  }
+
   // Do a clean forward and backward pass, so that memory allocation are done
   // and future iterations will be more stable.
   LOG(INFO) << "Performing Forward";
@@ -384,6 +412,9 @@ int time() {
   double forward_time = 0.0;
   double backward_time = 0.0;
 
+  // start profiler
+  cudaProfilerStart();
+
   struct timeval startt, endt;
   for (int j = 0; j < FLAGS_iterations; ++j) {
     Timer iter_timer;
@@ -397,7 +428,11 @@ int time() {
       layers[i]->Forward(bottom_vecs[i], top_vecs[i]);
       cudaDeviceSynchronize();
       gettimeofday( &endt, NULL );
-      LOG(INFO) << j <<" " << layername <<" " << layertype<< " from: " << startt.tv_sec <<"," << startt.tv_usec <<" to: " << endt.tv_sec << "," << endt.tv_usec;
+      using std::setfill;
+      using std::setw;
+      LOG(INFO) << j <<" " << layername <<" " << layertype<< " from: " 
+                << startt.tv_sec <<"." << setfill('0') << setw(6) << startt.tv_usec <<" to: " 
+                << endt.tv_sec << "." << setfill('0') << setw(6) << endt.tv_usec;
 //      forward_time_per_layer[i] += timer.MicroSeconds();
     }
     forward_time += forward_timer.MicroSeconds();
@@ -413,6 +448,10 @@ int time() {
     LOG(INFO) << "Iteration: " << j + 1 << " forward-backward time: "
       << iter_timer.MilliSeconds() << " ms.";
   }
+
+  // stop profiler
+  cudaProfilerStop();
+
   LOG(INFO) << "Average time per layer: ";
   for (int i = 0; i < layers.size(); ++i) {
     const caffe::string& layername = layers[i]->layer_param().name();
