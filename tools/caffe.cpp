@@ -431,8 +431,8 @@ int time() {
       using std::setfill;
       using std::setw;
       LOG(INFO) << j <<" " << layername <<" " << layertype<< " from: " 
-                << startt.tv_sec <<"." << setfill('0') << setw(6) << startt.tv_usec <<" to: " 
-                << endt.tv_sec << "." << setfill('0') << setw(6) << endt.tv_usec;
+                << startt.tv_sec << setfill('0') << setw(6) << startt.tv_usec <<" to: " 
+                << endt.tv_sec << setfill('0') << setw(6) << endt.tv_usec;
 //      forward_time_per_layer[i] += timer.MicroSeconds();
     }
     forward_time += forward_timer.MicroSeconds();
